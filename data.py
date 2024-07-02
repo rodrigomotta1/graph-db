@@ -2,7 +2,7 @@ import pandas as pd
 import os
 import time
 
-from api import get_music_info
+from api.generic import get_music_info
 from utils import update_progress
 
 
