@@ -3,14 +3,17 @@ import os
 import time
 
 from api.generic import get_music_info
-from utils import update_progress
+from typing import Dict, List
 
+from tqdm import tqdm
 
 def setup() -> None:
     """
     Pre configuration routines (?)
     """
-    pd.set_option('display.max_columns', None)
+    # Try loading environment variables from .env file
+    
+    # pd.set_option('display.max_columns', None)
 
 
 def enhance_csv(filepath:str, output:str = "") -> None:
@@ -18,12 +21,11 @@ def enhance_csv(filepath:str, output:str = "") -> None:
     Include genre, theme and style information for each music in given CSV.
     # TODO: Change code to default output be None
     """
-    df:pd.DataFrame = pd.read_csv(filepath)
-    
-    # Create columns in current dataframe
-    df['genre'] = None
-    df['theme'] = None
-    df['style'] = None
+    df:pd.DataFrame = pd.read_csv(filepath).sample(n=600)
+
+    enhanced_df = pd.DataFrame(columns=df.columns.tolist() + ['genre'])
+
+    genres_memo:Dict[str, list] = {}
 
     rows:int
     cols:int
@@ -31,23 +33,38 @@ def enhance_csv(filepath:str, output:str = "") -> None:
     
     iter_counter:int = 0
 
-    for index, row in df.iterrows():
+    for index, row in tqdm(df.iterrows(), total=len(df), desc="Enhancing CSV"):
         artist:str = row['artist']
         track:str = row['track']
 
-        music_info:dict[str, str | None] = get_music_info(artist, track)
+        if not track in genres_memo:
+            genres_memo[track] = get_music_info(artist, track)
 
-        df.at[index, 'genre'] = music_info['genre']
-        df.at[index, 'theme'] = music_info['theme']
-        df.at[index, 'style'] = music_info['style']
+        genres:list = genres_memo[track]
 
-        update_progress(iter_counter, rows)
-        iter_counter += 1
+        # Debug print
+        # print(f"Processing {artist} - {track} with genres: {genres}")
+        
+        # Skip row i`f no genre information is found
+        if not genres:
+            continue
+        
+        new_rows = []
+        # Copy this row for each genre found
+        for genre in genres:
+            new_row = row.copy()
+            new_row['genre'] = genre
+            enhanced_df = pd.concat([enhanced_df, new_row.to_frame().T], ignore_index=True)
+            
 
-        time.sleep(0.5)
+        # update_progress(iter_counter, rows)
+        # iter_counter += 1
+
+        # time.sleep(0.5)
+
 
     if len(output) > 0:
-        df.to_csv(output, index=False)
+        enhanced_df.to_csv(output, index=False)
 
 
 def show_csv_info(filepath:str, caption:str = "") -> None:
